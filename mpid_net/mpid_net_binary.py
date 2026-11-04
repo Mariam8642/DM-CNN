@@ -1,4 +1,14 @@
-###
+def __init__(self, dropout=0.5, num_classes=2,
+             eps=1e-05, running_stats=False, pooling="avg"):
+
+    super(MPID, self).__init__()
+
+    if pooling == "avg":
+        pool_layer = nn.AvgPool2d
+    elif pooling == "max":
+        pool_layer = nn.MaxPool2d
+    else:
+        raise ValueError("pooling must be 'avg' or 'max'")###
 ### Note11-08-2019, using PyToch_v1.0.1, one has to use GroupNorm
 ### to avoid bug (we believe in PyTorch) in BatchNorm layer during inference.
 ###
