@@ -32,8 +32,18 @@ from mpid_net import mpid_net_binary
 # EXPERIMENT SETTINGS
 # --------------------------------------------------
 
-N_TRIALS = 30
-EPOCHS = int(cfg.EPOCHS)
+#to run the whole thing
+# N_TRIALS = 25
+# EPOCHS = int(cfg.EPOCHS)
+# --------------------------------------------------
+
+#to run a test
+QUICK = os.environ.get("QUICK") == "1"
+N_TRIALS = 2 if QUICK else 30
+
+EPOCHS = 1 if QUICK else int(cfg.EPOCHS)
+# --------------------------------------------------
+
 VALIDATION_FRACTION = 0.20
 SEED = int(cfg.seed_number)
 
@@ -82,6 +92,7 @@ def create_dataset(input_file, augment=False):
         input_file,
         IMAGE_TREE,
         "cpu",
+        # plane=int(cfg.plane),
         plane=0,
         augment=augment
     )
@@ -117,6 +128,10 @@ val_size = max(1, int(VALIDATION_FRACTION * dataset_size))
 
 val_indices = indices[:val_size]
 train_indices = indices[val_size:]
+
+if QUICK:
+    train_indices = train_indices[:320]
+    val_indices = val_indices[:160]
 
 if len(train_indices) == 0:
     raise ValueError("Training subset is empty.")
@@ -281,25 +296,24 @@ def objective(trial):
         log=True
     )
 
-    pooling = trial.suggest_categorical(
-        "pooling",
-        ["avg", "max"]
-    )
+    # pooling = trial.suggest_categorical(
+    #     "pooling",
+    #     ["avg", "max"]
+    # )
 
     print("\n" + "=" * 50)
     print("TRIAL:", trial.number)
     print("Dropout:", dropout)
     print("Learning rate:", learning_rate)
     print("Weight decay:", weight_decay)
-    print("Pooling:", pooling)
+    # print("Pooling:", pooling)
     print("=" * 50)
 
     # Initialise a fresh model for every trial
 
     model = mpid_net_binary.MPID(
         dropout=dropout,
-        num_classes=2,
-        pooling=pooling
+        num_classes=2
     ).to(device)
 
     criterion = nn.BCEWithLogitsLoss()
@@ -352,11 +366,23 @@ if __name__ == "__main__":
 
     set_seed(SEED)
 
+    # study = optuna.create_study(
+    #     direction="maximize",
+    #     sampler=optuna.samplers.TPESampler(
+    #         seed=SEED
+    #     ),
+    #     pruner=optuna.pruners.MedianPruner(
+    #         n_startup_trials=5,
+    #         n_warmup_steps=1
+    #     )
+    # )
+
     study = optuna.create_study(
         direction="maximize",
-        sampler=optuna.samplers.TPESampler(
-            seed=SEED
-        ),
+        study_name="dmcnn_quick" if QUICK else "dmcnn",
+        storage="sqlite:////home/hep/ma2922/Project/DM-CNN/outputs/optuna.db",
+        load_if_exists=True,
+        sampler=optuna.samplers.TPESampler(seed=SEED),
         pruner=optuna.pruners.MedianPruner(
             n_startup_trials=5,
             n_warmup_steps=1
@@ -407,10 +433,16 @@ if __name__ == "__main__":
 
     set_seed(SEED)
 
-    full_train_dataset = create_dataset(
-        cfg.input_train,
-        augment=bool(cfg.augment)
-    )
+    # full_train_dataset = create_dataset(
+    #     cfg.input_train,
+    #     augment=bool(cfg.augment)
+    # )
+
+    full_train_dataset = create_dataset(cfg.input_train, augment=bool(cfg.augment))
+    if QUICK:
+        idx = torch.randperm(len(full_train_dataset)).tolist()[:320]
+        full_train_dataset = Subset(full_train_dataset, idx)
+
 
     full_train_loader = DataLoader(
         full_train_dataset,
@@ -424,7 +456,7 @@ if __name__ == "__main__":
     final_model = mpid_net_binary.MPID(
         dropout=best_params["dropout"],
         num_classes=2,
-        pooling=best_params["pooling"]
+        # pooling=best_params["pooling"]
     ).to(device)
 
     criterion = nn.BCEWithLogitsLoss()
@@ -473,10 +505,15 @@ if __name__ == "__main__":
 
     print("\nEvaluating final model on independent test set...")
 
-    test_dataset = create_dataset(
-        cfg.input_test,
-        augment=False
-    )
+    # test_dataset = create_dataset(
+    #     cfg.input_test,
+    #     augment=False
+    # )
+
+    test_dataset = create_dataset(cfg.input_test, augment=False)
+    if QUICK:
+        idx = torch.randperm(len(test_dataset)).tolist()[:160]
+        test_dataset = Subset(test_dataset, idx)
 
     test_loader = DataLoader(
         test_dataset,

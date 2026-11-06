@@ -1,0 +1,17 @@
+universe = vanilla
+
+executable = run_smoketest.sh
+
+output = outputs/smoketest.out
+error = outputs/smoketest.err
+log = outputs/smoketest.log
+
+request_cpus = 2
+request_memory = 8GB
+request_gpus = 1
+
++MaxRuntime = 3600
+
+queue
+
+

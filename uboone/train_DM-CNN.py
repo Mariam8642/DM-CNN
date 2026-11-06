@@ -111,7 +111,8 @@ def TrainCNN():
 
     # Import the CNN model 
     mpid = mpid_net_binary.MPID(dropout=cfg.drop_out, num_classes=2)
-    mpid.cuda()
+    mpid = mpid.to(train_device)
+    #mpid.cuda()
 
     # Using BCEWithLogitsLoss instead of 
     # Using Sigmoid in mpidnet + BCELoss 
@@ -178,12 +179,13 @@ def TrainCNN():
                 fout.write("%f"%step)
                 fout.write("\n")
             step+=1
-        fout.close()
-        # end timer
-        end = time.time()
-        print("\n")
-        print("Total training time: {:0.4f} seconds".format(end-init))
-        return 0 
+    # End of training loop
+    fout.close()
+    # end timer
+    end = time.time()
+    print("\n")
+    print("Total training time: {:0.4f} seconds".format(end-init))
+    return 0 
 
 
 
