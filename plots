@@ -1,0 +1,17 @@
+import matplotlib
+matplotlib.use("Agg")  # non-interactive backend, safe for headless environments
+import matplotlib.pyplot as plt
+
+epoch = [1, 2, 3, 4, 5]
+train_loss = [0.47650, 0.31658, 0.25981, 0.22477, 0.19957]
+val_loss = [0.43205, 0.26724, 0.25759, 0.21278, 0.18372 ]
+
+#Train loss: 0.19957 | Val loss: 0.18372 | Val AUC: 0.97533
+
+plt.figure()
+plt.plot(epoch, train_loss, label="Train loss")
+plt.plot(epoch, val_loss, label="Val loss")
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.legend()
+plt.savefig("loss_curve.png")

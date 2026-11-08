@@ -21,6 +21,10 @@ import torch.nn as nn
 import torch.optim as optim
 import optuna
 
+import matplotlib
+matplotlib.use("Agg")  # safe for headless/remote runs (no display needed)
+import matplotlib.pyplot as plt
+
 from sklearn.metrics import roc_auc_score
 from torch.utils.data import DataLoader, Subset
 
@@ -39,9 +43,9 @@ from mpid_net import mpid_net_binary
 
 #to run a test
 QUICK = os.environ.get("QUICK") == "1"
-N_TRIALS = 2 if QUICK else 30
+N_TRIALS = 2 if QUICK else 1
 
-EPOCHS = 1 if QUICK else int(cfg.EPOCHS)
+EPOCHS = 1 if QUICK else 20
 # --------------------------------------------------
 
 VALIDATION_FRACTION = 0.20
@@ -265,6 +269,31 @@ def train_one_epoch(model, loader, criterion, optimizer):
 
     return total_loss / total_events
 
+# --------------------------------------------------
+# LOSS CURVE PLOTTING
+# --------------------------------------------------
+
+def plot_loss_curves(train_losses, val_losses, out_path):
+    """
+    Plots train and validation loss on the same figure and saves it to disk.
+    Safe to call in headless environments (e.g. Condor/cluster jobs) since
+    matplotlib is set to the 'Agg' backend above.
+    """
+
+    epochs_axis = list(range(1, len(train_losses) + 1))
+
+    plt.figure()
+    plt.plot(epochs_axis, train_losses, label="Train loss", marker="o")
+    plt.plot(epochs_axis, val_losses, label="Val loss", marker="o")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title("Final model training: loss curves")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.savefig(out_path)
+    plt.close()
+
+    print("Saved loss curve plot:", out_path)
 
 # --------------------------------------------------
 # OPTUNA OBJECTIVE
@@ -467,37 +496,172 @@ if __name__ == "__main__":
         weight_decay=best_params["weight_decay"]
     )
 
+    # for epoch in range(EPOCHS):
+
+    #     loss = train_one_epoch(
+    #         final_model,
+    #         full_train_loader,
+    #         criterion,
+    #         final_optimizer
+    #     )
+
+    #     print(
+    #         f"Final training epoch {epoch + 1}/{EPOCHS} "
+    #         f"| Loss: {loss:.5f}"
+    #     )
+
+    # # Save final model
+
+    # model_path = os.path.join(
+    #     WEIGHTS_DIR,
+    #     "DM-CNN_optuna_best.pwf"
+    # )
+
+    # torch.save(
+    #     {
+    #         "model_state_dict": final_model.state_dict(),
+    #         "hyperparameters": best_params,
+    #         "validation_auc": study.best_value
+    #     },
+    #     model_path
+    # )
+
+    # print("\nSaved model:", model_path)
+
+ # --------------------------------------------------
+    # FINAL TRAINING ON FULL TRAINING DATA
+    # --------------------------------------------------
+
+    # print("\nTraining final model with best hyperparameters...")
+
+    # set_seed(SEED)
+
+    # full_train_dataset = create_dataset(
+    #     cfg.input_train,
+    #     augment=bool(cfg.augment)
+    # )
+
+    full_train_dataset = create_dataset(cfg.input_train, augment=bool(cfg.augment))
+    if QUICK:
+        idx = torch.randperm(len(full_train_dataset)).tolist()[:320]
+        full_train_dataset = Subset(full_train_dataset, idx)
+
+
+    full_train_loader = DataLoader(
+        full_train_dataset,
+        batch_size=int(cfg.batch_size_train),
+        shuffle=True,
+        num_workers=0
+    )
+
+    best_params = study.best_params
+
+    final_model = mpid_net_binary.MPID(
+        dropout=best_params["dropout"],
+        num_classes=2,
+        # pooling=best_params["pooling"]
+    ).to(device)
+
+    criterion = nn.BCEWithLogitsLoss()
+
+    final_optimizer = optim.Adam(
+        final_model.parameters(),
+        lr=best_params["learning_rate"],
+        weight_decay=best_params["weight_decay"]
+    )
+
+    # Track loss/AUC per epoch so we can plot curves and keep the best checkpoint.
+    final_train_losses = []
+    final_val_losses = []
+    final_val_aucs = []
+
+    best_final_val_auc = 0.0
+    best_model_path = os.path.join(
+        WEIGHTS_DIR,
+        "DM-CNN_optuna_best.pwf"
+    )
+
     for epoch in range(EPOCHS):
 
-        loss = train_one_epoch(
+        train_loss = train_one_epoch(
             final_model,
             full_train_loader,
             criterion,
             final_optimizer
         )
 
-        print(
-            f"Final training epoch {epoch + 1}/{EPOCHS} "
-            f"| Loss: {loss:.5f}"
+        # NOTE: val_loader/val_subset were built from the earlier 80/20 split
+        # of cfg.input_train. Since final_train_loader now uses the FULL
+        # training set, this validation set overlaps with final training data.
+        # It is still useful as a running diagnostic for the loss curves below,
+        # but the independent test set evaluated further down remains the only
+        # unbiased performance estimate.
+        val_loss, val_auc = evaluate(
+            final_model,
+            val_loader,
+            criterion
         )
 
-    # Save final model
+        final_train_losses.append(train_loss)
+        final_val_losses.append(val_loss)
+        final_val_aucs.append(val_auc)
 
-    model_path = os.path.join(
-        WEIGHTS_DIR,
-        "DM-CNN_optuna_best.pwf"
-    )
+        print(
+            f"Final training epoch {epoch + 1}/{EPOCHS} "
+            f"| Train loss: {train_loss:.5f} "
+            f"| Val loss: {val_loss:.5f} "
+            f"| Val AUC: {val_auc:.5f}"
+        )
 
-    torch.save(
-        {
-            "model_state_dict": final_model.state_dict(),
-            "hyperparameters": best_params,
-            "validation_auc": study.best_value
-        },
-        model_path
-    )
+        # Save the checkpoint with the best validation AUC seen so far,
+        # not just whatever the last epoch happens to produce.
+        if val_auc > best_final_val_auc:
+            best_final_val_auc = val_auc
 
-    print("\nSaved model:", model_path)
+            torch.save(
+                {
+                    "model_state_dict": final_model.state_dict(),
+                    "hyperparameters": best_params,
+                    "validation_auc": best_final_val_auc,
+                    "epoch": epoch + 1
+                },
+                best_model_path
+            )
+
+            print(
+                f"  -> New best val AUC ({best_final_val_auc:.5f}), "
+                f"checkpoint saved to {best_model_path}"
+            )
+
+    print("\nSaved best model:", best_model_path)
+    print("Best epoch val AUC during final training:", best_final_val_auc)
+
+    # Plot train vs. val loss curves on the same figure.
+    loss_curve_path = os.path.join(OUTPUT_DIR, "final_training_loss_curve.png")
+    plot_loss_curves(final_train_losses, final_val_losses, loss_curve_path)
+
+    # Save the per-epoch history alongside the plot for later inspection.
+    with open(
+        os.path.join(OUTPUT_DIR, "final_training_history.json"),
+        "w"
+    ) as f:
+
+        json.dump(
+            {
+                "train_loss": final_train_losses,
+                "val_loss": final_val_losses,
+                "val_auc": final_val_aucs,
+                "best_val_auc": best_final_val_auc
+            },
+            f,
+            indent=4
+        )
+
+    # Reload the best checkpoint (by val AUC) before running the final,
+    # independent test evaluation, rather than using whatever the last
+    # epoch happened to produce.
+    checkpoint = torch.load(best_model_path, map_location=device)
+    final_model.load_state_dict(checkpoint["model_state_dict"])
 
     # --------------------------------------------------
     # FINAL TEST SET EVALUATION (ONCE)
@@ -529,7 +693,8 @@ if __name__ == "__main__":
     )
 
     print("\nFINAL RESULTS")
-    print("Best validation AUC:", study.best_value)
+    print("Best validation AUC (Optuna search):", study.best_value)
+    print("Best validation AUC (final training):", best_final_val_auc)
     print("Independent test AUC:", test_auc)
     print("Independent test loss:", test_loss)
 
@@ -540,7 +705,8 @@ if __name__ == "__main__":
 
         json.dump(
             {
-                "validation_auc": study.best_value,
+                "validation_auc_search": study.best_value,
+                "validation_auc_final_training": best_final_val_auc,
                 "test_auc": test_auc,
                 "test_loss": test_loss,
                 "best_params": best_params
@@ -548,3 +714,4 @@ if __name__ == "__main__":
             f,
             indent=4
         )
+
