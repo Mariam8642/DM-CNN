@@ -1,8 +1,8 @@
 {
-    "best_validation_auc": 0.6659333752357008,
+    "best_validation_auc": 0.9883189349362249,
     "best_params": {
-        "dropout": 0.28139954357910385,
-        "learning_rate": 2.7559267640273738e-05,
-        "weight_decay": 2.340746480576753e-06
+        "dropout": 0.15763245060281797,
+        "learning_rate": 3.905570226277973e-05,
+        "weight_decay": 0.0010502773068687286
     }
 }

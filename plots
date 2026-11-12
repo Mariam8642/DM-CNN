@@ -15,3 +15,22 @@ plt.xlabel("Epoch")
 plt.ylabel("Loss")
 plt.legend()
 plt.savefig("loss_curve.png")
+
+
+train_loss_20 = [0.31996, 0.23466, 0.20258, 0.18530, 0.17110, 0.15976, 0.14881, 0.14236, 0.13522, 0.12919, 0.12419, 0.11859, 0.11084, 0.10741, 0.10317, 0.10038, 0.09502, 0.09180, 0.09157, 0.08585]
+val_loss_20 = [0.27536, 0.21532, 0.20436, 0.17710, 0.18355, 0.17605, 0.16239, 0.15287, 0.15056, 0.13583, 0.18120, 0.14967, 0.13472, 0.13979, 0.15969, 0.13366, 0.13142, 0.13585, 0.13194, 0.13181]
+
+epochs_20 = range(1, len(train_loss_20) + 1)
+
+plt.figure(figsize=(8, 5))
+plt.plot(epochs_20, train_loss_20, marker='o', label='Training loss')
+plt.plot(epochs_20, val_loss_20, marker='o', label='Validation loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.title('Training and Validation Loss')
+plt.xticks(epochs_20)
+plt.grid(True, alpha=0.3)
+plt.legend()
+plt.tight_layout()
+plt.show()
+plt.savefig("20Epochloss_curve.png")

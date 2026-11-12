@@ -413,8 +413,9 @@ if __name__ == "__main__":
         load_if_exists=True,
         sampler=optuna.samplers.TPESampler(seed=SEED),
         pruner=optuna.pruners.MedianPruner(
-            n_startup_trials=5,
-            n_warmup_steps=1
+            n_startup_trials=10,     # need more completed trials before median is trustworthy
+            n_warmup_steps=10,       # don't allow pruning until halfway through (epoch 10 of 20)
+            interval_steps=2         # only check every 2 epochs after warmup, not every single one
         )
     )
 
@@ -589,13 +590,6 @@ if __name__ == "__main__":
             criterion,
             final_optimizer
         )
-
-        # NOTE: val_loader/val_subset were built from the earlier 80/20 split
-        # of cfg.input_train. Since final_train_loader now uses the FULL
-        # training set, this validation set overlaps with final training data.
-        # It is still useful as a running diagnostic for the loss curves below,
-        # but the independent test set evaluated further down remains the only
-        # unbiased performance estimate.
         val_loss, val_auc = evaluate(
             final_model,
             val_loader,
