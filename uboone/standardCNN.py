@@ -22,7 +22,7 @@ CFG = os.path.abspath(os.path.join(BASE_PATH, "..", "cfg", "training_config.cfg"
 cfg = config_loader(CFG)
 
 SEED = int(cfg.seed_number)
-EPOCHS = 20
+EPOCHS = int(os.environ.get("CNN_EPOCHS", "20"))
 VALIDATION_FRACTION = 0.20
 IMAGE_TREE = "image2d_image2d_binary_tree"
 
@@ -250,6 +250,17 @@ if __name__ == "__main__":
                 },
                 model_path
             )
+
+    predictions_path = os.path.join(
+        OUTPUT_DIR,
+        "standardCNN_predictions.csv"
+    )
+
+    export_predictions(
+        model=model,
+        loader=val_loader,
+        output_csv=predictions_path
+    )
 
     plot_loss_curves(
         train_losses,
