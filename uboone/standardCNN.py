@@ -17,7 +17,8 @@ from mpid_data import mpid_data_binary
 from mpid_net import mpid_net_binary
 
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
-CFG = os.path.join(BASE_PATH, "cfg", "training_config.cfg")
+# CFG = os.path.join(BASE_PATH, "cfg", "training_config.cfg")
+CFG = os.path.abspath(os.path.join(BASE_PATH, "..", "cfg", "training_config.cfg"))
 cfg = config_loader(CFG)
 
 SEED = int(cfg.seed_number)
@@ -110,7 +111,71 @@ def plot_loss_curves(train_losses, val_losses, output_path):
     plt.tight_layout()
     plt.savefig(output_path, dpi=300, bbox_inches="tight")
     plt.close()
+def _energy_from_info(info, start_index, batch_size):
+    """Return one energy value per event, if available in info."""
+    import numpy as np
 
+    candidates = ("energy", "Energy", "reco_energy", "true_energy", "event_energy")
+
+    if isinstance(info, dict):
+        for key in candidates:
+            if key in info:
+                values = info[key]
+                if torch.is_tensor(values):
+                    values = values.detach().cpu().numpy()
+                return np.asarray(values).reshape(-1).tolist()
+
+    # Some datasets return a list of dictionaries.
+    if isinstance(info, (list, tuple)) and len(info) > 0 and isinstance(info[0], dict):
+        for key in candidates:
+            if key in info[0]:
+                return [float(item[key]) for item in info]
+
+    # No energy was found. This keeps the CSV aligned, but these are event
+    # indices, not physical energies. Replace this after inspecting `info`.
+    return [float(start_index + i) for i in range(batch_size)]
+
+
+def export_predictions(model, loader, output_csv):
+    import csv
+    import torch.nn.functional as F
+
+    model.eval()
+    rows = []
+    event_index = 0
+
+    with torch.no_grad():
+        for x_batch, y_batch, info, nevents in loader:
+            x_batch = x_batch.to(device, dtype=torch.float32).reshape(-1, 1, 512, 512)
+            y_batch = y_batch.to(device, dtype=torch.float32).reshape(-1)
+
+            logits = model(x_batch).reshape(-1)
+            probabilities = torch.sigmoid(logits)
+            predictions = (probabilities >= 0.5).long().cpu().tolist()
+            labels = y_batch.long().cpu().tolist()
+            probabilities = probabilities.cpu().tolist()
+            energies = _energy_from_info(info, event_index, len(labels))
+
+            for energy, label, prediction, score in zip(
+                energies, labels, predictions, probabilities
+            ):
+                rows.append({
+                    "energy": energy,
+                    "label": label,
+                    "prediction": prediction,
+                    "score": score
+                })
+
+            event_index += len(labels)
+
+    with open(output_csv, "w", newline="") as f:
+        writer = csv.DictWriter(
+            f, fieldnames=["energy", "label", "prediction", "score"]
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+    print("Saved event predictions:", output_csv, flush=True)
 
 if __name__ == "__main__":
     set_seed(SEED)
