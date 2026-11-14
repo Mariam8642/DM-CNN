@@ -102,13 +102,13 @@ def TrainCNN():
     # Training data
     train_data = mpid_data_binary.MPID_Dataset(train_file, "image2d_image2d_binary_tree", train_device, plane=0, augment=False)
     train_data = Subset(train_data, range(min(500, len(train_data))))
-    train_loader = DataLoader(dataset=train_data, batch_size=cfg.batch_size_train, shuffle=True)
+    train_loader = DataLoader(dataset=train_data, batch_size=cfg.batch_size_train, shuffle=True,num_workers=2)
     labels = 2
 
     # Test data
     test_data = mpid_data_binary.MPID_Dataset(test_file, "image2d_image2d_binary_tree", train_device, plane=0)
     test_data = Subset(test_data, range(min(100, len(test_data))))
-    test_loader = DataLoader(dataset=test_data, batch_size=cfg.batch_size_test, shuffle=True)
+    test_loader = DataLoader(dataset=test_data, batch_size=cfg.batch_size_test, shuffle=True,num_workers=2)
 
     # Import the CNN model 
     mpid = mpid_net_binary.MPID(dropout=cfg.drop_out, num_classes=2)
@@ -190,6 +190,8 @@ def TrainCNN():
 
 
 
+
 if __name__ == '__main__':
     TrainCNN()
+
 

@@ -1,5 +1,3 @@
-#Running the standard CNN
-
 import os
 import json
 import random
@@ -197,13 +195,13 @@ if __name__ == "__main__":
         Subset(train_dataset, train_indices),
         batch_size=int(cfg.batch_size_train),
         shuffle=True,
-        num_workers=0
+        num_workers=2
     )
     val_loader = DataLoader(
         Subset(val_dataset, val_indices),
         batch_size=int(cfg.batch_size_test),
         shuffle=False,
-        num_workers=0
+        num_workers=2
     )
 
     # Fixed hyperparameters: no Optuna search.
