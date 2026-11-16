@@ -11,11 +11,11 @@ echo "Start time: $(date)"
 
 export PYTHONPATH=/home/hep/ma2922/Project/DM-CNN:${PYTHONPATH:-}
 
-echo "Checking GPU:"
-nvidia-smi
+#echo "Checking GPU:"
+#nvidia-smi
 
-echo "Checking PyTorch CUDA:"
-apptainer exec --nv \
+#echo "Checking PyTorch CUDA:"
+#apptainer exec --nv \
   /vols/sbn/uboone/darkTridents/container/larcv2.sif \
   python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('GPU count:', torch.cuda.device_count())"
 
