@@ -29,9 +29,12 @@ from torch.utils.data import DataLoader, Subset
 from mpid_data import mpid_data_binary
 from mpid_net import mpid_net_binary
 
-# to run a test
+# #to run a test
+# QUICK = os.environ.get("QUICK") == "1"
+# EPOCHS = 1 if QUICK else 20
+
 QUICK = os.environ.get("QUICK") == "1"
-EPOCHS = 1 if QUICK else 20
+EPOCHS = 1 if QUICK else int(os.environ.get("EPOCHS", "5"))
 
 # --------------------------------------------------
 # SINGLE SET OF HYPERPARAMETERS  (edit these)

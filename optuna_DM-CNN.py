@@ -395,17 +395,6 @@ if __name__ == "__main__":
 
     set_seed(SEED)
 
-    # study = optuna.create_study(
-    #     direction="maximize",
-    #     sampler=optuna.samplers.TPESampler(
-    #         seed=SEED
-    #     ),
-    #     pruner=optuna.pruners.MedianPruner(
-    #         n_startup_trials=5,
-    #         n_warmup_steps=1
-    #     )
-    # )
-
     study = optuna.create_study(
         direction="maximize",
         study_name="dmcnn_quick" if QUICK else "dmcnn",
@@ -708,4 +697,3 @@ if __name__ == "__main__":
             f,
             indent=4
         )
-
