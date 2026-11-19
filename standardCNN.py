@@ -3,6 +3,7 @@ import sys
 import json
 import random
 import numpy as np
+import time
 
 # Load the existing training configuration
 from lib.config import config_loader
@@ -196,7 +197,6 @@ def evaluate(model, loader, criterion):
     average_loss = total_loss / total_events
 
     return average_loss, auc
-
 
 # --------------------------------------------------
 # TRAINING
