@@ -1,11 +1,11 @@
 {
-    "validation_auc_search": 0.6659333752357008,
-    "validation_auc_final_training": 0.7133878064110623,
-    "test_auc": 0.7176684881602915,
-    "test_loss": 0.6344338595867157,
+    "validation_auc_search": 0.9883189349362249,
+    "validation_auc_final_training": 0.9839863047609191,
+    "test_auc": 0.9819941171885459,
+    "test_loss": 0.16265509058840627,
     "best_params": {
-        "dropout": 0.28139954357910385,
-        "learning_rate": 2.7559267640273738e-05,
-        "weight_decay": 2.340746480576753e-06
+        "dropout": 0.15763245060281797,
+        "learning_rate": 3.905570226277973e-05,
+        "weight_decay": 0.0010502773068687286
     }
 }

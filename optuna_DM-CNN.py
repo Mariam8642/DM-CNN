@@ -4,6 +4,7 @@ import sys
 import json
 import random
 import numpy as np
+import csv
 
 # Load the existing training configuration
 from lib.config import config_loader
@@ -45,7 +46,7 @@ from mpid_net import mpid_net_binary
 QUICK = os.environ.get("QUICK") == "1"
 N_TRIALS = 2 if QUICK else 1
 
-EPOCHS = 1 if QUICK else 20
+EPOCHS = 1 if QUICK else int(os.environ.get("EPOCHS", "5"))
 # --------------------------------------------------
 
 VALIDATION_FRACTION = 0.20
@@ -386,6 +387,99 @@ def objective(trial):
 
     return best_auc
 
+def extract_energy(info, n_events):
+    """
+    Adapt the candidate keys to the actual field name in your dataset.
+    """
+    possible_keys = (
+        "energy",
+        "Energy",
+        "event_energy",
+        "shower_energy",
+        "E",
+    )
+
+    if isinstance(info, dict):
+        for key in possible_keys:
+            if key in info:
+                values = info[key]
+
+                if torch.is_tensor(values):
+                    return values.detach().cpu().numpy().tolist()
+
+                if isinstance(values, np.ndarray):
+                    return values.tolist()
+
+                if isinstance(values, (list, tuple)):
+                    return list(values)
+
+    # If the energy is not present in info, save NaN rather than crashing.
+    return [float("nan")] * n_events
+
+def save_misclassified_events(model, loader, output_path, threshold=0.5):
+    model.eval()
+    rows = []
+
+    with torch.no_grad():
+        for x_batch, y_batch, info, nevents in loader:
+
+            x_batch = x_batch.to(
+                device,
+                dtype=torch.float32
+            ).reshape(-1, 1, 512, 512)
+
+            y_batch = y_batch.to(device, dtype=torch.float32)
+
+            logits = model(x_batch)
+            signal_scores = torch.sigmoid(logits)[:, 0]
+
+            scores = signal_scores.cpu().numpy()
+            true_signal = y_batch[:, 0].cpu().numpy() >= 0.5
+            predicted_signal = scores >= threshold
+
+            energies = extract_energy(info, len(scores))
+
+            for i in range(len(scores)):
+
+                is_correct = true_signal[i] == predicted_signal[i]
+
+                if not is_correct:
+                    if true_signal[i] and not predicted_signal[i]:
+                        classification = "false_negative"
+                    elif not true_signal[i] and predicted_signal[i]:
+                        classification = "false_positive"
+                    else:
+                        classification = "unknown"
+
+                    rows.append(
+                        {
+                            "event_index": len(rows),
+                            "energy": energies[i],
+                            "true_signal": int(true_signal[i]),
+                            "predicted_signal": int(predicted_signal[i]),
+                            "signal_score": float(scores[i]),
+                            "classification": classification,
+                        }
+                    )
+
+    with open(output_path, "w", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "event_index",
+                "energy",
+                "true_signal",
+                "predicted_signal",
+                "signal_score",
+                "classification",
+            ],
+        )
+
+        writer.writeheader()
+        writer.writerows(rows)
+
+    print(f"Saved {len(rows)} misclassified events to {output_path}")
+
 
 # --------------------------------------------------
 # RUN OPTUNA
@@ -667,6 +761,18 @@ if __name__ == "__main__":
         batch_size=int(cfg.batch_size_test),
         shuffle=False,
         num_workers=0
+    )
+
+    misclassified_path = os.path.join(
+        OUTPUT_DIR,
+        "misclassified_test_events.csv"
+    )
+
+    save_misclassified_events(
+        final_model,
+        test_loader,
+        misclassified_path,
+        threshold=0.5
     )
 
     test_loss, test_auc = evaluate(
