@@ -8,6 +8,11 @@ echo "Host: $(hostname)"
 echo "Start time: $(date)"
 
 export PYTHONPATH=/home/hep/ma2922/Project/DM-CNN:${PYTHONPATH:-}
+export EARLY_STOPPING_PATIENCE=5
+export MIN_DELTA=0.001
+export EPOCHS=50
+
+python train_optuna_early_stopping.py
 
 command -v apptainer
 test -d /home/hep/ma2922/Project/DM-CNN

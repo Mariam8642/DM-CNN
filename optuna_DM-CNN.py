@@ -580,51 +580,6 @@ if __name__ == "__main__":
         weight_decay=best_params["weight_decay"]
     )
 
-    # for epoch in range(EPOCHS):
-
-    #     loss = train_one_epoch(
-    #         final_model,
-    #         full_train_loader,
-    #         criterion,
-    #         final_optimizer
-    #     )
-
-    #     print(
-    #         f"Final training epoch {epoch + 1}/{EPOCHS} "
-    #         f"| Loss: {loss:.5f}"
-    #     )
-
-    # # Save final model
-
-    # model_path = os.path.join(
-    #     WEIGHTS_DIR,
-    #     "DM-CNN_optuna_best.pwf"
-    # )
-
-    # torch.save(
-    #     {
-    #         "model_state_dict": final_model.state_dict(),
-    #         "hyperparameters": best_params,
-    #         "validation_auc": study.best_value
-    #     },
-    #     model_path
-    # )
-
-    # print("\nSaved model:", model_path)
-
- # --------------------------------------------------
-    # FINAL TRAINING ON FULL TRAINING DATA
-    # --------------------------------------------------
-
-    # print("\nTraining final model with best hyperparameters...")
-
-    # set_seed(SEED)
-
-    # full_train_dataset = create_dataset(
-    #     cfg.input_train,
-    #     augment=bool(cfg.augment)
-    # )
-
     full_train_dataset = create_dataset(cfg.input_train, augment=bool(cfg.augment))
     if QUICK:
         idx = torch.randperm(len(full_train_dataset)).tolist()[:320]
@@ -691,7 +646,6 @@ if __name__ == "__main__":
         )
 
         # Save the checkpoint with the best validation AUC seen so far,
-        # not just whatever the last epoch happens to produce.
         if val_auc > best_final_val_auc:
             best_final_val_auc = val_auc
 

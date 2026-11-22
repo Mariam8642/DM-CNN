@@ -10,6 +10,12 @@ request_cpus = 4
 request_memory = 16GB
 request_gpus = 1
 
+EARLY_STOPPING_PATIENCE=5
+MIN_DELTA=0.001
+EPOCHS=50
+environment = "EARLY_STOPPING_PATIENCE=5;MIN_DELTA=0.001;EPOCHS=50"
+
 +MaxRuntime = 86400
 
 queue
+

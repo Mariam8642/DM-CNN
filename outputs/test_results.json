@@ -1,7 +1,7 @@
 {
-    "validation_auc": 0.9814246188937702,
-    "test_auc": 0.9814941028483795,
-    "test_loss": 0.16383165350412127,
+    "validation_auc": 0.9902750230608676,
+    "test_auc": 0.9905452113784561,
+    "test_loss": 0.12369374883007216,
     "hyperparameters": {
         "dropout": 0.3,
         "learning_rate": 0.0001,

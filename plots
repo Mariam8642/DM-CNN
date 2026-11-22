@@ -34,3 +34,72 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 plt.savefig("20Epochloss_curve.png")
+
+
+import os
+import pandas as pd
+import matplotlib
+matplotlib.use("Agg")  # safe for headless/remote runs
+import matplotlib.pyplot as plt
+
+CSV_PATH = "/home/hep/ma2922/Project/DM-CNN/outputs/run3_results_standard.csv"
+OUTPUT_DIR = "/home/hep/ma2922/Project/DM-CNN/outputs"
+
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+df = pd.read_csv(CSV_PATH)
+
+print("Loaded", len(df), "rows")
+print(df.head())
+print("\nPredicted signal:", df["predicted_signal"].sum(), "/", len(df))
+
+# --------------------------------------------------
+# 1. Histogram of signal scores (all events)
+# --------------------------------------------------
+plt.figure()
+plt.hist(df["signal_score"], bins=50, range=(0, 1), color="steelblue", edgecolor="black")
+plt.axvline(0.5, color="red", linestyle="--", label="Decision threshold (0.5)")
+plt.xlabel("Signal score")
+plt.ylabel("Number of events")
+plt.title("Run3 CNN signal score distribution")
+plt.legend()
+plt.grid(True, alpha=0.3)
+out1 = os.path.join(OUTPUT_DIR, "run3_signal_score_hist.png")
+plt.savefig(out1)
+plt.close()
+print("Saved:", out1)
+
+# --------------------------------------------------
+# 2. Same histogram, log scale on y-axis (often clearer)
+# --------------------------------------------------
+plt.figure()
+plt.hist(df["signal_score"], bins=50, range=(0, 1), color="steelblue", edgecolor="black")
+plt.axvline(0.5, color="red", linestyle="--", label="Decision threshold (0.5)")
+plt.yscale("log")
+plt.xlabel("Signal score")
+plt.ylabel("Number of events (log scale)")
+plt.title("Run3 CNN signal score distribution (log y)")
+plt.legend()
+plt.grid(True, alpha=0.3)
+out2 = os.path.join(OUTPUT_DIR, "run3_signal_score_hist_log.png")
+plt.savefig(out2)
+plt.close()
+print("Saved:", out2)
+
+# --------------------------------------------------
+# 3. Bar chart: predicted signal vs background counts
+# --------------------------------------------------
+counts = df["predicted_signal"].value_counts().sort_index()
+labels = ["Background (0)", "Signal (1)"]
+values = [counts.get(0, 0), counts.get(1, 0)]
+
+plt.figure()
+plt.bar(labels, values, color=["gray", "orange"])
+plt.ylabel("Number of events")
+plt.title("Run3 predicted classification counts")
+for i, v in enumerate(values):
+    plt.text(i, v, str(v), ha="center", va="bottom")
+out3 = os.path.join(OUTPUT_DIR, "run3_predicted_counts.png")
+plt.savefig(out3)
+plt.close()
+print("Saved:", out3)
