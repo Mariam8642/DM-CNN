@@ -448,48 +448,63 @@ if __name__ == "__main__":
     if not os.path.exists(best_model_path):
         raise RuntimeError("No best model checkpoint was saved.")
 
-    print("\nSaved best model:", best_model_path)
-    print("Best epoch:", best_epoch)
-    print("Best validation AUC:", best_val_auc)
-    # Save training curves.
-    loss_curve_path = os.path.join(
-        OUTPUT_DIR,
-        "training_loss_curve.png"
-    )
-    # Loss curves + per-epoch history
-    plot_loss_curves(
-        train_losses,
-        val_losses,
-        os.path.join(OUTPUT_DIR, "training_loss_curve_standard.png")
+# Reload the best checkpoint before evaluation.
+checkpoint = torch.load(best_model_path, map_location=device)
+model.load_state_dict(checkpoint["model_state_dict"])
+
+print("\nSaved best model:", best_model_path)
+print("Best epoch:", best_epoch)
+print("Best validation AUC:", best_val_auc)
+
+# Save standard-CNN plots.
+loss_path = os.path.join(
+    OUTPUT_DIR,
+    "training_loss_curve_standard.png"
+)
+
+auc_path = os.path.join(
+    OUTPUT_DIR,
+    "training_validation_auc_curve_standard.png"
+)
+
+plot_loss_curves(
+    train_losses,
+    val_losses,
+    loss_path
+)
+
+plot_validation_auc_curve(
+    val_aucs,
+    auc_path
+)
+
+# Save standard-CNN training history.
+history_path = os.path.join(
+    OUTPUT_DIR,
+    "training_history_standard.json"
+)
+
+with open(history_path, "w") as f:
+    json.dump(
+        {
+            "hyperparameters": HYPERPARAMS,
+            "train_loss": train_losses,
+            "val_loss": val_losses,
+            "val_auc": val_aucs,
+            "best_val_auc": best_val_auc,
+            "best_epoch": best_epoch,
+            "early_stopping_patience": EARLY_STOPPING_PATIENCE,
+            "min_delta": MIN_DELTA,
+        },
+        f,
+        indent=4
     )
 
-    auc_curve_path = os.path.join(
-        OUTPUT_DIR,
-        "training_validation_auc_curve_standard.png"
-    )
-    plot_validation_auc_curve(
-        val_aucs,
-        auc_curve_path
-    )
-    history_path = os.path.join(
-        OUTPUT_DIR,
-        "training_history_standard.json"
-    )
-    with open(history_path, "w") as f:
-        json.dump(
-            {
-                "hyperparameters": HYPERPARAMS,
-                "train_loss": train_losses,
-                "val_loss": val_losses,
-                "val_auc": val_aucs,
-                "best_val_auc": best_val_auc,
-                "best_epoch": best_epoch,
-                "early_stopping_patience": EARLY_STOPPING_PATIENCE,
-                "min_delta": MIN_DELTA,
-            },
-            f,
-            indent=4
-        )
+print("Saved standard loss curve:", loss_path)
+print("Saved standard validation-AUC curve:", auc_path)
+print("Saved standard training history:", history_path)
+
+        
 import os
 import json
 import random
@@ -902,31 +917,7 @@ if __name__ == "__main__":
     print("\nSaved best model:", best_model_path)
     print("Best epoch:", best_epoch)
     print("Best validation AUC:", best_val_auc)
-
-    # Save training curves.
-    loss_curve_path = os.path.join(
-        OUTPUT_DIR,
-        "training_loss_curve_standard.png"
-    )
-    plot_loss_curves(
-        train_losses,
-        val_losses,
-        loss_curve_path
-    )
-
-    auc_curve_path = os.path.join(
-        OUTPUT_DIR,
-        "training_val_auc_standard.png"
-    )
-    plot_validation_auc_curve(
-        val_aucs,
-        auc_curve_path
-    )
-
-    history_path = os.path.join(
-        OUTPUT_DIR,
-        "training_history_standard.json"
-    )
+    
     with open(history_path, "w") as f:
         json.dump(
             {
