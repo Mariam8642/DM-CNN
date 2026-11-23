@@ -1,18 +1,18 @@
 import os
-import sys
 import json
 import random
-import numpy as np
 import csv
 
-# Load the existing training configuration
+import numpy as np
+
+# Load the existing training configuration before importing project modules.
 from lib.config import config_loader
 
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 CFG = os.path.join(BASE_PATH, "cfg", "training_config.cfg")
 cfg = config_loader(CFG)
 
-# Configure GPU before importing torch
+# Configure CUDA before importing torch.
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 # os.environ["CUDA_VISIBLE_DEVICES"] = str(cfg.GPUID)
 
@@ -36,16 +36,33 @@ from mpid_net import mpid_net_binary
 # EXPERIMENT SETTINGS
 # --------------------------------------------------
 
-QUICK = os.environ.get("QUICK") == "1"
-N_TRIALS = 2 if QUICK else 1
-EPOCHS = 1 if QUICK else int(os.environ.get("EPOCHS", "5"))
+QUICK = os.environ.get("QUICK", "0") == "1"
 
-# Early-stopping controls. Override from the shell, for example:
-# EARLY_STOPPING_PATIENCE=5 MIN_DELTA=0.001 EPOCHS=50 python train.py
+N_TRIALS = int(
+    os.environ.get("N_TRIALS", "2" if QUICK else "25")
+)
+
+# QUICK limits the dataset, but EPOCHS can still be overridden.
+EPOCHS = int(
+    os.environ.get("EPOCHS", "1" if QUICK else "50")
+)
+
 EARLY_STOPPING_PATIENCE = int(
     os.environ.get("EARLY_STOPPING_PATIENCE", "5")
 )
-MIN_DELTA = float(os.environ.get("MIN_DELTA", "0.0"))
+
+MIN_DELTA = float(
+    os.environ.get("MIN_DELTA", "0.0")
+)
+
+if N_TRIALS < 1:
+    raise ValueError("N_TRIALS must be at least 1.")
+if EPOCHS < 1:
+    raise ValueError("EPOCHS must be at least 1.")
+if EARLY_STOPPING_PATIENCE < 1:
+    raise ValueError("EARLY_STOPPING_PATIENCE must be at least 1.")
+if MIN_DELTA < 0:
+    raise ValueError("MIN_DELTA must be non-negative.")
 
 VALIDATION_FRACTION = 0.20
 SEED = int(cfg.seed_number)
@@ -99,7 +116,7 @@ def create_dataset(input_file, augment=False):
     )
 
 
-# Separate dataset objects ensure validation images are never augmented.
+# Use separate dataset objects so validation images are never augmented.
 train_dataset = create_dataset(
     cfg.input_train,
     augment=bool(cfg.augment)
@@ -115,6 +132,7 @@ dataset_size = len(train_dataset)
 if dataset_size < 2:
     raise ValueError("Training dataset contains fewer than 2 events.")
 
+# Deterministic 80/20 split.
 generator = torch.Generator().manual_seed(SEED)
 indices = torch.randperm(
     dataset_size,
@@ -131,6 +149,8 @@ if QUICK:
 
 if len(train_indices) == 0:
     raise ValueError("Training subset is empty.")
+if len(val_indices) == 0:
+    raise ValueError("Validation subset is empty.")
 
 train_subset = Subset(train_dataset, train_indices)
 val_subset = Subset(val_dataset, val_indices)
@@ -187,19 +207,18 @@ def evaluate(model, loader, criterion):
 
             # Class 0 represents signal.
             signal_scores = torch.sigmoid(logits)[:, 0]
-
             all_scores.extend(signal_scores.cpu().numpy())
             all_labels.extend(y_batch[:, 0].cpu().numpy())
 
     if total_events == 0:
-        raise ValueError("Validation loader is empty.")
+        raise ValueError("Evaluation loader is empty.")
 
     all_labels = np.asarray(all_labels)
     all_scores = np.asarray(all_scores)
 
     if len(np.unique(all_labels)) < 2:
         raise ValueError(
-            "Validation dataset must contain both signal and background."
+            "Evaluation dataset must contain both signal and background."
         )
 
     auc = roc_auc_score(all_labels, all_scores)
@@ -247,7 +266,7 @@ def train_one_epoch(model, loader, criterion, optimizer):
 
 
 # --------------------------------------------------
-# LOSS CURVE PLOTTING
+# PLOTTING
 # --------------------------------------------------
 
 def plot_loss_curves(train_losses, val_losses, out_path):
@@ -255,16 +274,37 @@ def plot_loss_curves(train_losses, val_losses, out_path):
 
     plt.figure()
     plt.plot(epochs_axis, train_losses, label="Train loss", marker="o")
-    plt.plot(epochs_axis, val_losses, label="Val loss", marker="o")
+    plt.plot(epochs_axis, val_losses, label="Validation loss", marker="o")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.title("Final model training: loss curves")
     plt.legend()
     plt.grid(True, alpha=0.3)
-    plt.savefig(out_path)
+    plt.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close()
 
     print("Saved loss curve plot:", out_path)
+
+
+def plot_validation_auc_curve(val_aucs, out_path):
+    epochs_axis = list(range(1, len(val_aucs) + 1))
+
+    plt.figure()
+    plt.plot(
+        epochs_axis,
+        val_aucs,
+        label="Validation AUC",
+        marker="o"
+    )
+    plt.xlabel("Epoch")
+    plt.ylabel("ROC-AUC")
+    plt.title("Final model validation AUC")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close()
+
+    print("Saved validation AUC curve:", out_path)
 
 
 # --------------------------------------------------
@@ -331,11 +371,12 @@ def objective(trial):
             f"Val AUC: {val_auc:.5f}"
         )
 
+        # Optuna pruning stops the entire trial when it is underperforming.
         trial.report(val_auc, epoch)
-
         if trial.should_prune():
             raise optuna.TrialPruned()
 
+        # Ordinary early stopping stops this trial after no useful progress.
         if val_auc > best_auc + MIN_DELTA:
             best_auc = val_auc
             epochs_without_improvement = 0
@@ -361,21 +402,29 @@ def extract_energy(info, n_events):
         "E",
     )
 
+    values_out = None
+
     if isinstance(info, dict):
         for key in possible_keys:
             if key in info:
                 values = info[key]
 
                 if torch.is_tensor(values):
-                    return values.detach().cpu().numpy().tolist()
+                    values_out = values.detach().cpu().numpy().tolist()
+                elif isinstance(values, np.ndarray):
+                    values_out = values.tolist()
+                elif isinstance(values, (list, tuple)):
+                    values_out = list(values)
+                break
 
-                if isinstance(values, np.ndarray):
-                    return values.tolist()
+    if values_out is None:
+        return [float("nan")] * n_events
 
-                if isinstance(values, (list, tuple)):
-                    return list(values)
+    values_out = list(values_out)
+    if len(values_out) < n_events:
+        values_out.extend([float("nan")] * (n_events - len(values_out)))
 
-    return [float("nan")] * n_events
+    return values_out[:n_events]
 
 
 def save_misclassified_events(model, loader, output_path, threshold=0.5):
@@ -389,7 +438,10 @@ def save_misclassified_events(model, loader, output_path, threshold=0.5):
                 dtype=torch.float32
             ).reshape(-1, 1, 512, 512)
 
-            y_batch = y_batch.to(device, dtype=torch.float32)
+            y_batch = y_batch.to(
+                device,
+                dtype=torch.float32
+            )
 
             logits = model(x_batch)
             signal_scores = torch.sigmoid(logits)[:, 0]
@@ -446,10 +498,15 @@ def save_misclassified_events(model, loader, output_path, threshold=0.5):
 if __name__ == "__main__":
     set_seed(SEED)
 
+    study_name = "dmcnn_quick" if QUICK else "dmcnn"
+    storage_path = (
+        "sqlite:////home/hep/ma2922/Project/DM-CNN/outputs/optuna.db"
+    )
+
     study = optuna.create_study(
         direction="maximize",
-        study_name="dmcnn_quick" if QUICK else "dmcnn",
-        storage="sqlite:////home/hep/ma2922/Project/DM-CNN/outputs/optuna.db",
+        study_name=study_name,
+        storage=storage_path,
         load_if_exists=True,
         sampler=optuna.samplers.TPESampler(seed=SEED),
         pruner=optuna.pruners.MedianPruner(
@@ -498,20 +555,11 @@ if __name__ == "__main__":
     # --------------------------------------------------
 
     print("\nTraining final model with best hyperparameters...")
-
     set_seed(SEED)
 
-    full_train_dataset = create_dataset(
-        cfg.input_train,
-        augment=bool(cfg.augment)
-    )
-
-    if QUICK:
-        idx = torch.randperm(len(full_train_dataset)).tolist()[:320]
-        full_train_dataset = Subset(full_train_dataset, idx)
-
-    full_train_loader = DataLoader(
-        full_train_dataset,
+    # Keep validation separate so early stopping is not evaluated on training data.
+    final_train_loader = DataLoader(
+        train_subset,
         batch_size=int(cfg.batch_size_train),
         shuffle=True,
         num_workers=0
@@ -547,7 +595,7 @@ if __name__ == "__main__":
     for epoch in range(EPOCHS):
         train_loss = train_one_epoch(
             final_model,
-            full_train_loader,
+            final_train_loader,
             criterion,
             final_optimizer
         )
@@ -616,6 +664,15 @@ if __name__ == "__main__":
         final_train_losses,
         final_val_losses,
         loss_curve_path
+    )
+
+    auc_curve_path = os.path.join(
+        OUTPUT_DIR,
+        "final_training_validation_auc_curve.png"
+    )
+    plot_validation_auc_curve(
+        final_val_aucs,
+        auc_curve_path
     )
 
     with open(

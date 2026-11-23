@@ -1,11 +1,14 @@
 {
-    "validation_auc_search": 0.9891903557605976,
-    "validation_auc_final_training": 0.9841063966155603,
-    "test_auc": 0.9819222404020738,
-    "test_loss": 0.16133635904143506,
+    "validation_auc_search": 0.8541797611565053,
+    "validation_auc_final_training": 0.8247957259585166,
+    "test_auc": 0.861991341991342,
+    "test_loss": 0.43113044649362564,
     "best_params": {
-        "dropout": 0.4087369290748014,
-        "learning_rate": 4.985818504018102e-05,
-        "weight_decay": 1.9711357156786796e-05
-    }
+        "dropout": 0.12351210289403802,
+        "learning_rate": 7.079949934896747e-05,
+        "weight_decay": 0.00023260642668854255
+    },
+    "best_epoch": 4,
+    "early_stopping_patience": 2,
+    "min_delta": 0.001
 }

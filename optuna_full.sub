@@ -1,21 +1,23 @@
-universe = vanilla
+universe              = vanilla
 
-executable = run_optuna_full.sh
+executable            = /home/hep/ma2922/Project/DM-CNN/run_optuna_full.sh
 
-output = outputs/optuna_full.out
-error = outputs/optuna_full.err
-log = outputs/optuna_full.log
+request_gpus           = 1
+request_cpus           = 16
+request_memory         = 32 GB
 
-request_cpus = 4
-request_memory = 16GB
-request_gpus = 1
+should_transfer_files  = NO
+getenv                = True
 
-EARLY_STOPPING_PATIENCE=5
-MIN_DELTA=0.001
-EPOCHS=50
-environment = "EARLY_STOPPING_PATIENCE=5;MIN_DELTA=0.001;EPOCHS=50"
+# Pass early-stopping settings into the job environment.
+# The shell script also sets these values, so this line is optional but explicit.
+environment            = "EARLY_STOPPING_PATIENCE=5;MIN_DELTA=0.001;EPOCHS=50;N_TRIALS=25;QUICK=0"
 
-+MaxRuntime = 86400
+output                 = /home/hep/ma2922/Project/DM-CNN/condor_logs/optuna_full.$(ClusterId).$(ProcId).out
+error                  = /home/hep/ma2922/Project/DM-CNN/condor_logs/optuna_full.$(ClusterId).$(ProcId).err
+log                    = /home/hep/ma2922/Project/DM-CNN/condor_logs/optuna_full.$(ClusterId).$(ProcId).log
 
-queue
++MaxRuntime            = 86400
+notification           = Never
 
+queue 1

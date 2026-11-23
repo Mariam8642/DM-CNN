@@ -1,35 +1,41 @@
-#!/bin/bash
-# set -e
-set -euxo pipefail
+#!/usr/bin/env bash
+set -euo pipefail
 
-cd /home/hep/ma2922/Project/DM-CNN
+PROJECT_DIR=/home/hep/ma2922/Project/DM-CNN
+CONTAINER=/vols/sbn/uboone/darkTridents/container/larcv2.sif
+
+cd "$PROJECT_DIR"
 
 echo "Host: $(hostname)"
 echo "Start time: $(date)"
 
-export PYTHONPATH=/home/hep/ma2922/Project/DM-CNN:${PYTHONPATH:-}
+command -v apptainer
+test -d "$PROJECT_DIR"
+test -f "$CONTAINER"
+
+# Full-run configuration.
+export QUICK=0
+export N_TRIALS=1
+export EPOCHS=50
 export EARLY_STOPPING_PATIENCE=5
 export MIN_DELTA=0.001
-export EPOCHS=50
 
-python train_optuna_early_stopping.py
+echo "Starting CNN training inside Apptainer: $(date)"
 
-command -v apptainer
-test -d /home/hep/ma2922/Project/DM-CNN
-test -f /vols/sbn/uboone/darkTridents/container/larcv2.sif
-
-echo "Starting CNN training: $(date)"
-
-apptainer exec --nv \
+exec apptainer exec --nv \
   --bind /vols/sbn/uboone/darkTridents:/vols/sbn/uboone/darkTridents \
-  --bind /home/hep/ma2922/Project/DM-CNN:/home/hep/ma2922/Project/DM-CNN \
-  /vols/sbn/uboone/darkTridents/container/larcv2.sif \
-  bash -c '
-    set -eux
+  --bind "$PROJECT_DIR":"$PROJECT_DIR" \
+  "$CONTAINER" \
+  bash -lc '
+    set -euo pipefail
     export PYTHONPATH=/home/hep/ma2922/Project/DM-CNN:${PYTHONPATH:-}
+    export QUICK=0
+    export N_TRIALS=1
+    export EPOCHS=50
+    export EARLY_STOPPING_PATIENCE=5
+    export MIN_DELTA=0.001
     cd /home/hep/ma2922/Project/DM-CNN
-    python -u optuna_DM-CNN.py
+    exec python -u optuna_DM-CNN.py
   '
 
-echo "Finished: $(date)"
 
