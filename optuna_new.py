@@ -38,10 +38,6 @@ from mpid_net import mpid_net_binary
 
 QUICK = os.environ.get("QUICK", "0") == "1"
 
-N_TRIALS = int(
-    os.environ.get("N_TRIALS", "2" if QUICK else "25")
-)
-
 # QUICK limits the dataset, but EPOCHS can still be overridden.
 EPOCHS = int(
     os.environ.get("EPOCHS", "1" if QUICK else "50")
@@ -55,8 +51,7 @@ MIN_DELTA = float(
     os.environ.get("MIN_DELTA", "0.0")
 )
 
-if N_TRIALS < 1:
-    raise ValueError("N_TRIALS must be at least 1.")
+
 if EPOCHS < 1:
     raise ValueError("EPOCHS must be at least 1.")
 if EARLY_STOPPING_PATIENCE < 1:
@@ -80,7 +75,6 @@ device = torch.device(
 
 print("Device:", device)
 print("GPU available:", torch.cuda.is_available())
-print("Trials:", N_TRIALS)
 print("Maximum epochs per trial/final training:", EPOCHS)
 print("Early-stopping patience:", EARLY_STOPPING_PATIENCE)
 print("Minimum AUC improvement:", MIN_DELTA)
@@ -286,7 +280,11 @@ def plot_loss_curves(train_losses, val_losses, out_path):
     print("Saved loss curve plot:", out_path)
 
 
-def plot_validation_auc_curve(val_aucs, out_path):
+def plot_validation_auc_curve(
+    val_aucs,
+    out_path,
+    title="Final model validation AUC"
+):
     epochs_axis = list(range(1, len(val_aucs) + 1))
 
     plt.figure()
@@ -298,7 +296,7 @@ def plot_validation_auc_curve(val_aucs, out_path):
     )
     plt.xlabel("Epoch")
     plt.ylabel("ROC-AUC")
-    plt.title("Final model validation AUC")
+    plt.title(title)
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.savefig(out_path, dpi=150, bbox_inches="tight")
@@ -520,7 +518,7 @@ if __name__ == "__main__":
 
     study.optimize(
         objective,
-        n_trials=N_TRIALS
+        n_trials=1
     )
 
     print("\nOPTIMISATION FINISHED")
@@ -530,25 +528,40 @@ if __name__ == "__main__":
     for key, value in study.best_params.items():
         print(f"{key}: {value}")
 
+    # Save Optuna trial results
+    trials_path = os.path.join(
+        OUTPUT_DIR,
+        "optuna_trials.csv"
+    )
+
     study.trials_dataframe().to_csv(
-        os.path.join(OUTPUT_DIR, "optuna_trials.csv"),
+        trials_path,
         index=False
     )
 
-    with open(
-        os.path.join(OUTPUT_DIR, "optuna_best_params.json"),
-        "w"
-    ) as f:
+    print("Saved Optuna trials:", trials_path)
+
+    history_path = os.path.join(
+        OUTPUT_DIR,
+        "final_training_history_optuna.json"
+    )
+
+    with open(history_path, "w") as f:
         json.dump(
             {
-                "best_validation_auc": study.best_value,
-                "best_params": study.best_params,
+                "train_loss": final_train_losses,
+                "val_loss": final_val_losses,
+                "val_auc": final_val_aucs,
+                "best_val_auc": best_final_val_auc,
+                "best_epoch": best_epoch,
                 "early_stopping_patience": EARLY_STOPPING_PATIENCE,
                 "min_delta": MIN_DELTA,
             },
             f,
             indent=4
         )
+
+    print("Saved Optuna training history:", history_path)
 
     # --------------------------------------------------
     # FINAL TRAINING WITH EARLY STOPPING
@@ -658,8 +671,9 @@ if __name__ == "__main__":
 
     loss_curve_path = os.path.join(
         OUTPUT_DIR,
-        "final_training_loss_curve.png"
+        "final_training_loss_curve_optuna.png"
     )
+
     plot_loss_curves(
         final_train_losses,
         final_val_losses,
@@ -668,15 +682,17 @@ if __name__ == "__main__":
 
     auc_curve_path = os.path.join(
         OUTPUT_DIR,
-        "final_training_validation_auc_curve.png"
+        "final_training_validation_auc_curve_optuna.png"
     )
+
     plot_validation_auc_curve(
         final_val_aucs,
-        auc_curve_path
+        auc_curve_path,
+        "Final model validation AUC (Optuna search)"
     )
 
     with open(
-        os.path.join(OUTPUT_DIR, "final_training_history.json"),
+        os.path.join(OUTPUT_DIR, "final_training_history_optuna.json"),
         "w"
     ) as f:
         json.dump(
@@ -761,3 +777,27 @@ if __name__ == "__main__":
             f,
             indent=4
         )
+
+    # Save Optuna test results
+    test_results_path = os.path.join(
+        OUTPUT_DIR,
+        "test_results_optuna.json"
+    )
+
+    with open(test_results_path, "w") as f:
+        json.dump(
+            {
+                "validation_auc_search": study.best_value,
+                "validation_auc_final_training": best_final_val_auc,
+                "test_auc": test_auc,
+                "test_loss": test_loss,
+                "best_params": best_params,
+                "best_epoch": best_epoch,
+                "early_stopping_patience": EARLY_STOPPING_PATIENCE,
+                "min_delta": MIN_DELTA,
+            },
+            f,
+            indent=4
+        )
+
+    print("Saved Optuna test results:", test_results_path)

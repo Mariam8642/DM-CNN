@@ -286,7 +286,11 @@ def plot_loss_curves(train_losses, val_losses, out_path):
     print("Saved loss curve plot:", out_path)
 
 
-def plot_validation_auc_curve(val_aucs, out_path):
+def plot_validation_auc_curve(
+    val_aucs,
+    out_path,
+    title="Final model validation AUC"
+):
     epochs_axis = list(range(1, len(val_aucs) + 1))
 
     plt.figure()
@@ -298,7 +302,7 @@ def plot_validation_auc_curve(val_aucs, out_path):
     )
     plt.xlabel("Epoch")
     plt.ylabel("ROC-AUC")
-    plt.title("Final model validation AUC")
+    plt.title(title)
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.savefig(out_path, dpi=150, bbox_inches="tight")
@@ -658,7 +662,7 @@ if __name__ == "__main__":
 
     loss_curve_path = os.path.join(
         OUTPUT_DIR,
-        "final_training_loss_curve.png"
+        "final_training_loss_curve_optuna.png"
     )
     plot_loss_curves(
         final_train_losses,
@@ -668,17 +672,19 @@ if __name__ == "__main__":
 
     auc_curve_path = os.path.join(
         OUTPUT_DIR,
-        "final_training_validation_auc_curve.png"
+        "final_training_validation_auc_curve_optuna.png"
     )
     plot_validation_auc_curve(
         final_val_aucs,
-        auc_curve_path
+        auc_curve_path,
+        "Final model validation AUC (Optuna search)"
     )
 
-    with open(
-        os.path.join(OUTPUT_DIR, "final_training_history.json"),
-        "w"
-    ) as f:
+    history_path = os.path.join(
+        OUTPUT_DIR,
+        "final_training_history_optuna.json"
+    )
+    with open(history_path, "w") as f:
         json.dump(
             {
                 "train_loss": final_train_losses,
@@ -721,7 +727,7 @@ if __name__ == "__main__":
 
     misclassified_path = os.path.join(
         OUTPUT_DIR,
-        "misclassified_test_events.csv"
+        "misclassified_test_events_optuna.csv"
     )
 
     save_misclassified_events(
@@ -743,10 +749,11 @@ if __name__ == "__main__":
     print("Independent test AUC:", test_auc)
     print("Independent test loss:", test_loss)
 
-    with open(
-        os.path.join(OUTPUT_DIR, "optuna_test_results.json"),
-        "w"
-    ) as f:
+    test_results_path = os.path.join(
+        OUTPUT_DIR,
+        "test_results_optuna.json"
+    )
+    with open(test_results_path, "w") as f:
         json.dump(
             {
                 "validation_auc_search": study.best_value,
