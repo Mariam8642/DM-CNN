@@ -38,25 +38,14 @@ from mpid_net import mpid_net_binary
 
 QUICK = os.environ.get("QUICK", "0") == "1"
 
-N_TRIALS = int(
-    os.environ.get("N_TRIALS", "2" if QUICK else "25")
-)
-
 # QUICK limits the dataset, but EPOCHS can still be overridden.
-EPOCHS = int(
-    os.environ.get("EPOCHS", "1" if QUICK else "50")
-)
 
-EARLY_STOPPING_PATIENCE = int(
-    os.environ.get("EARLY_STOPPING_PATIENCE", "5")
-)
+EPOCHS = int(os.environ.get("EPOCHS", "15"))
 
-MIN_DELTA = float(
-    os.environ.get("MIN_DELTA", "0.0")
-)
+EARLY_STOPPING_PATIENCE = int(os.environ.get("EARLY_STOPPING_PATIENCE", "3"))
 
-if N_TRIALS < 1:
-    raise ValueError("N_TRIALS must be at least 1.")
+MIN_DELTA = float(os.environ.get("MIN_DELTA", "0.0"))
+
 if EPOCHS < 1:
     raise ValueError("EPOCHS must be at least 1.")
 if EARLY_STOPPING_PATIENCE < 1:
@@ -68,8 +57,15 @@ VALIDATION_FRACTION = 0.20
 SEED = int(cfg.seed_number)
 IMAGE_TREE = "image2d_image2d_binary_tree"
 
-OUTPUT_DIR = cfg.output_directory
-WEIGHTS_DIR = cfg.weights_directory
+OUTPUT_DIR = os.path.join(
+    cfg.output_directory,
+    "optunaoutputs",
+)
+
+WEIGHTS_DIR = os.path.join(
+    OUTPUT_DIR,
+    "weights",
+)
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(WEIGHTS_DIR, exist_ok=True)
@@ -80,7 +76,6 @@ device = torch.device(
 
 print("Device:", device)
 print("GPU available:", torch.cuda.is_available())
-print("Trials:", N_TRIALS)
 print("Maximum epochs per trial/final training:", EPOCHS)
 print("Early-stopping patience:", EARLY_STOPPING_PATIENCE)
 print("Minimum AUC improvement:", MIN_DELTA)
@@ -524,7 +519,7 @@ if __name__ == "__main__":
 
     study.optimize(
         objective,
-        n_trials=N_TRIALS
+        n_trials=1
     )
 
     print("\nOPTIMISATION FINISHED")

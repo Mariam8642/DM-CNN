@@ -1,13 +1,13 @@
 {
-    "validation_auc": 0.8222815839094909,
-    "test_auc": 0.8228571428571428,
-    "test_loss": 0.4867265269160271,
+    "validation_auc": 0.9793790975650702,
+    "test_auc": 0.9813588390060276,
+    "test_loss": 0.168255010226801,
     "best_epoch": 5,
     "hyperparameters": {
         "dropout": 0.3,
         "learning_rate": 0.0001,
         "weight_decay": 1e-05
     },
-    "early_stopping_patience": 2,
-    "min_delta": 0.001
+    "early_stopping_patience": 5,
+    "min_delta": 0.0
 }

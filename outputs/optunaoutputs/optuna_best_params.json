@@ -1,0 +1,10 @@
+{
+    "best_validation_auc": 0.9891903557605976,
+    "best_params": {
+        "dropout": 0.4087369290748014,
+        "learning_rate": 4.985818504018102e-05,
+        "weight_decay": 1.9711357156786796e-05
+    },
+    "early_stopping_patience": 5,
+    "min_delta": 0.001
+}

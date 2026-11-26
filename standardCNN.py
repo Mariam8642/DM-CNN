@@ -36,7 +36,7 @@ from mpid_net import mpid_net_binary
 # EPOCHS = 1 if QUICK else 20
 
 QUICK = os.environ.get("QUICK") == "1"
-EPOCHS = 1 if QUICK else int(os.environ.get("EPOCHS", "5"))
+EPOCHS = 1 if QUICK else int(os.environ.get("EPOCHS", "20"))
 
 EARLY_STOPPING_PATIENCE = int(
     os.environ.get("EARLY_STOPPING_PATIENCE", "5")
@@ -67,8 +67,16 @@ VALIDATION_FRACTION = 0.20
 SEED = int(cfg.seed_number)
 IMAGE_TREE = "image2d_image2d_binary_tree"
 
-OUTPUT_DIR = cfg.output_directory
-WEIGHTS_DIR = cfg.weights_directory
+OUTPUT_DIR = os.path.join(
+    cfg.output_directory,
+    "standardCNNoutputs",
+)
+
+WEIGHTS_DIR = os.path.join(
+    OUTPUT_DIR,
+    "weights",
+)
+
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(WEIGHTS_DIR, exist_ok=True)
@@ -481,6 +489,7 @@ plot_validation_auc_curve(
 # Save standard-CNN training history.
 history_path = os.path.join(
     OUTPUT_DIR,
+    "standardCNNoutputs",
     "training_history_standard.json"
 )
 

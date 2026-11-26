@@ -4,23 +4,27 @@ set -euo pipefail
 PROJECT_DIR=/home/hep/ma2922/Project/DM-CNN
 CONTAINER=/vols/sbn/uboone/darkTridents/container/larcv2.sif
 
+
+#arguments
+EPOCHS="${1:-15}"
+EARLY_STOPPING_PATIENCE="${2:-3}"
+MIN_DELTA="${3:-0.001}"
+
+export QUICK=0
+export EPOCHS
+export EARLY_STOPPING_PATIENCE
+export MIN_DELTA
+
+
 cd "$PROJECT_DIR"
 
-echo "Host: $(hostname)"
+echo "hostname: $(hostname)"
 echo "Start time: $(date)"
+echo "Running with EPOCHS=${EPOCHS}, EARLY_STOPPING_PATIENCE=${EARLY_STOPPING_PATIENCE}, MIN_DELTA=${MIN_DELTA}"
 
 command -v apptainer
 test -d "$PROJECT_DIR"
 test -f "$CONTAINER"
-
-# Full-run configuration.
-export QUICK=0
-export N_TRIALS=1
-export EPOCHS=50
-export EARLY_STOPPING_PATIENCE=5
-export MIN_DELTA=0.001
-
-echo "Starting CNN training inside Apptainer: $(date)"
 
 exec apptainer exec --nv \
   --bind /vols/sbn/uboone/darkTridents:/vols/sbn/uboone/darkTridents \
@@ -30,10 +34,9 @@ exec apptainer exec --nv \
     set -euo pipefail
     export PYTHONPATH=/home/hep/ma2922/Project/DM-CNN:${PYTHONPATH:-}
     export QUICK=0
-    export N_TRIALS=1
-    export EPOCHS=50
-    export EARLY_STOPPING_PATIENCE=5
-    export MIN_DELTA=0.001
+    export EPOCHS=$EPOCHS
+    export EARLY_STOPPING_PATIENCE=$EARLY_STOPPING_PATIENCE
+    export MIN_DELTA=$MIN_DELTA
     cd /home/hep/ma2922/Project/DM-CNN
     exec python -u optuna_DM-CNN.py
   '
